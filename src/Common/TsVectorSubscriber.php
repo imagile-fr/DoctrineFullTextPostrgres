@@ -1,15 +1,19 @@
 <?php
+
+declare(strict_types=1);
 /**
  * @author: James Murray <jaimz@vertigolabs.org>
+ *
  * @copyright:
+ *
  * @date: 9/15/2015
+ *
  * @time: 5:18 PM
  */
 
 namespace VertigoLabs\DoctrineFullTextPostgres\Common;
 
 use Doctrine\Common\Annotations\AnnotationException;
-use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\AnnotationRegistry;
 use Doctrine\Common\EventSubscriber;
 use Doctrine\DBAL\Types\Type;
@@ -19,6 +23,7 @@ use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\Driver\AttributeReader;
 use Doctrine\ORM\Mapping\MappingException;
 use VertigoLabs\DoctrineFullTextPostgres\DBAL\Types\TsVector as TsVectorType;
 use VertigoLabs\DoctrineFullTextPostgres\ORM\Mapping\TsVector;
@@ -28,8 +33,8 @@ use VertigoLabs\DoctrineFullTextPostgres\ORM\Mapping\TsVector;
  */
 class TsVectorSubscriber implements EventSubscriber
 {
-    const ANNOTATION_NS = 'VertigoLabs\\DoctrineFullTextPostgres\\ORM\\Mapping\\';
-    const ANNOTATION_TSVECTOR = 'TsVector';
+    public const ATTRIBUTE_NS = 'VertigoLabs\\DoctrineFullTextPostgres\\ORM\\Mapping\\';
+    public const ATTRIBUTE_TSVECTOR = 'TsVector';
 
     private static $supportedTypes = [
         'string',
@@ -41,17 +46,17 @@ class TsVectorSubscriber implements EventSubscriber
     ];
 
     /**
-     * @var AnnotationReader
+     * @var AttributeReader
      */
     private $reader;
 
     public function __construct()
     {
-        AnnotationRegistry::registerAutoloadNamespace(self::ANNOTATION_NS);
-        $this->reader = new AnnotationReader();
+        // AnnotationRegistry::registerAutoloadNamespace(self::ATTRIBUTE_NS);
+        $this->reader = new AttributeReader();
 
-        if (!Type::hasType(strtolower(self::ANNOTATION_TSVECTOR))) {
-            Type::addType(strtolower(self::ANNOTATION_TSVECTOR), TsVectorType::class);
+        if (!Type::hasType(strtolower(self::ATTRIBUTE_TSVECTOR))) {
+            Type::addType(strtolower(self::ATTRIBUTE_TSVECTOR), TsVectorType::class);
         }
     }
 
@@ -75,20 +80,21 @@ class TsVectorSubscriber implements EventSubscriber
         $metaData = $eventArgs->getClassMetadata();
 
         $class = $metaData->getReflectionClass();
+
         foreach ($class->getProperties() as $prop) {
-            /** @var TsVector $annotation */
-            $annotation = $this->reader->getPropertyAnnotation($prop, self::ANNOTATION_NS.self::ANNOTATION_TSVECTOR);
-            if (null === $annotation) {
+            /** @var TsVector $attribute */
+            $attribute = $this->reader->getPropertyAttribute($prop, self::ATTRIBUTE_NS.self::ATTRIBUTE_TSVECTOR);
+            if (null === $attribute) {
                 continue;
             }
-            $this->checkWatchFields($class, $prop, $annotation);
+            $this->checkWatchFields($class, $prop, $attribute);
             $metaData->mapField([
                 'fieldName' => $prop->getName(),
-                'columnName' => $this->getColumnName($prop, $annotation),
+                'columnName' => $this->getColumnName($prop, $attribute),
                 'type' => 'tsvector',
-                'weight' => strtoupper($annotation->weight),
-                'language' => strtolower($annotation->language),
-                'nullable' => $this->isWatchFieldNullable($class, $annotation)
+                'weight' => strtoupper($attribute->weight),
+                'language' => strtolower($attribute->language),
+                'nullable' => $this->isWatchFieldNullable($class, $attribute),
             ]);
         }
     }
@@ -113,7 +119,7 @@ class TsVectorSubscriber implements EventSubscriber
             $refl = new \ReflectionObject($entity);
             foreach ($refl->getProperties() as $prop) {
                 /** @var TsVector $annot */
-                $annot = $this->reader->getPropertyAnnotation($prop, TsVector::class);
+                $annot = $this->reader->getPropertyAttribute($prop, TsVector::class);
                 if (null === $annot) {
                     continue;
                 }
@@ -125,7 +131,7 @@ class TsVectorSubscriber implements EventSubscriber
                         $method = $refl->getMethod($field);
                         $method->setAccessible(true);
                         $methodValue = $method->invoke($entity);
-                        if (is_array($methodValue)) {
+                        if (\is_array($methodValue)) {
                             $methodValue = implode(' ', $methodValue);
                         }
                         $tsVectorVal[] = $methodValue;
@@ -134,7 +140,7 @@ class TsVectorSubscriber implements EventSubscriber
                         $field = $refl->getProperty($field);
                         $field->setAccessible(true);
                         $fieldValue = $field->getValue($entity);
-                        if (is_array($fieldValue)) {
+                        if (\is_array($fieldValue)) {
                             $fieldValue = implode(' ', $fieldValue);
                         }
                         $tsVectorVal[] = $fieldValue;
@@ -142,7 +148,7 @@ class TsVectorSubscriber implements EventSubscriber
                 }
                 $prop->setAccessible(true);
                 $value = [
-                    'data' => join(' ', $tsVectorVal),
+                    'data' => implode(' ', $tsVectorVal),
                     'language' => $annot->language,
                     'weight' => $annot->weight,
                 ];
@@ -151,9 +157,9 @@ class TsVectorSubscriber implements EventSubscriber
         }
     }
 
-    private function getColumnName(\ReflectionProperty $property, TsVector $annotation)
+    private function getColumnName(\ReflectionProperty $property, TsVector $attribute)
     {
-        $name = $annotation->name;
+        $name = $attribute->name;
         if (null === $name) {
             $name = $property->getName();
         }
@@ -161,9 +167,9 @@ class TsVectorSubscriber implements EventSubscriber
         return $name;
     }
 
-    private function checkWatchFields(\ReflectionClass $class, \ReflectionProperty $targetProperty, TsVector $annotation)
+    private function checkWatchFields(\ReflectionClass $class, \ReflectionProperty $targetProperty, TsVector $attribute)
     {
-        foreach ($annotation->fields as $fieldName) {
+        foreach ($attribute->fields as $fieldName) {
             if ($class->hasMethod($fieldName)) {
                 continue;
             }
@@ -174,30 +180,23 @@ class TsVectorSubscriber implements EventSubscriber
 
             $property = $class->getProperty($fieldName);
             /** @var Column $propAnnot */
-            $propAnnot = $this->reader->getPropertyAnnotation($property, Column::class);
-            if (!in_array($propAnnot->type, self::$supportedTypes)) {
-                throw new AnnotationException(sprintf(
-                    '%s::%s TsVector field can only be assigned to ( "%s" ) columns. %1$s::%s has the type %s',
-                    $class->getName(),
-                    $targetProperty->getName(),
-                    implode('" | "', self::$supportedTypes),
-                    $fieldName,
-                    $propAnnot->type
-                ));
+            $propAnnot = $this->reader->getPropertyAttribute($property, Column::class);
+            if (!\in_array($propAnnot->type, self::$supportedTypes)) {
+                throw new AnnotationException(sprintf('%s::%s TsVector field can only be assigned to ( "%s" ) columns. %1$s::%s has the type %s', $class->getName(), $targetProperty->getName(), implode('" | "', self::$supportedTypes), $fieldName, $propAnnot->type));
             }
         }
     }
 
-    private function isWatchFieldNullable(\ReflectionClass $class, TsVector $annotation)
+    private function isWatchFieldNullable(\ReflectionClass $class, TsVector $attribute)
     {
-        foreach ($annotation->fields as $fieldName) {
+        foreach ($attribute->fields as $fieldName) {
             if ($class->hasMethod($fieldName)) {
                 continue;
             }
 
             $property = $class->getProperty($fieldName);
             /** @var Column $propAnnot */
-            $propAnnot = $this->reader->getPropertyAnnotation($property, Column::class);
+            $propAnnot = $this->reader->getPropertyAttribute($property, Column::class);
             if (false === $propAnnot->nullable) {
                 return false;
             }
