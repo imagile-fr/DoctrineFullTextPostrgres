@@ -13,9 +13,8 @@ declare(strict_types=1);
 
 namespace VertigoLabs\DoctrineFullTextPostgres\Common;
 
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\Common\Annotations\AnnotationException;
-use Doctrine\Common\Annotations\AnnotationRegistry;
-use Doctrine\Common\EventSubscriber;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Event\PreFlushEventArgs;
@@ -31,7 +30,10 @@ use VertigoLabs\DoctrineFullTextPostgres\ORM\Mapping\TsVector;
 /**
  * Class TsVectorSubscriber.
  */
-class TsVectorSubscriber implements EventSubscriber
+#[AsDoctrineListener(event: Events::preUpdate)]
+#[AsDoctrineListener(event: Events::preFlush)]
+#[AsDoctrineListener(event: Events::loadClassMetadata)]
+class TsVectorListener
 {
     public const ATTRIBUTE_NS = 'VertigoLabs\\DoctrineFullTextPostgres\\ORM\\Mapping\\';
     public const ATTRIBUTE_TSVECTOR = 'TsVector';
@@ -52,26 +54,11 @@ class TsVectorSubscriber implements EventSubscriber
 
     public function __construct()
     {
-        // AnnotationRegistry::registerAutoloadNamespace(self::ATTRIBUTE_NS);
         $this->reader = new AttributeReader();
 
         if (!Type::hasType(strtolower(self::ATTRIBUTE_TSVECTOR))) {
             Type::addType(strtolower(self::ATTRIBUTE_TSVECTOR), TsVectorType::class);
         }
-    }
-
-    /**
-     * Returns an array of events this subscriber wants to listen to.
-     *
-     * @return array
-     */
-    public function getSubscribedEvents()
-    {
-        return [
-            Events::loadClassMetadata,
-            Events::preFlush,
-            Events::preUpdate,
-        ];
     }
 
     public function loadClassMetadata(LoadClassMetadataEventArgs $eventArgs)
@@ -101,14 +88,14 @@ class TsVectorSubscriber implements EventSubscriber
 
     public function preFlush(PreFlushEventArgs $eventArgs)
     {
-        $uow = $eventArgs->getEntityManager()->getUnitOfWork();
+        $uow = $eventArgs->getObjectManager()->getUnitOfWork();
         $insertions = $uow->getScheduledEntityInsertions();
         $this->setTsVector($insertions);
     }
 
     public function preUpdate(PreUpdateEventArgs $eventArgs)
     {
-        $uow = $eventArgs->getEntityManager()->getUnitOfWork();
+        $uow = $eventArgs->getObjectManager()->getUnitOfWork();
         $updates = $uow->getScheduledEntityUpdates();
         $this->setTsVector($updates);
     }
