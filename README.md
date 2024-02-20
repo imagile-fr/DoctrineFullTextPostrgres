@@ -5,23 +5,27 @@
 A simple to use set of database types, and annotations to use postgresql's full text search engine with doctrine
 
 ## Installation
- * Register Doctrine Annotation:
+
+* Register Doctrine Annotation:
 
  ```php
  \Doctrine\Common\Annotations\AnnotationRegistry::registerAutoloadNamespace("VertigoLabs\\DoctrineFullTextPostgres\\ORM\\Mapping\\");
  ```
- * Register Doctrine Type:
+
+* Register Doctrine Type:
 
  ```php
  Type::addType('tsvector',\VertigoLabs\DoctrineFullTextPostgres\ORM\Mapping\TsVectorType::class);
  ```
- * Register Doctrine Event Subscriber
+
+* Register Doctrine Event Subscriber
 
  ```php
  $this->em->getEventManager()->addEventSubscriber(new \VertigoLabs\DoctrineFullTextPostgres\Common\TsVectorSubscriber());
  ```
 
- * Register Doctrine Functions
+* Register Doctrine Functions
+
  ```php
  $doctrineConfig->addCustomStringFunction('tsquery', \VertigoLabs\DoctrineFullTextPostgres\ORM\Query\AST\Functions\TsQueryFunction::class);
  $doctrineConfig->addCustomStringFunction('tsplainquery', \VertigoLabs\DoctrineFullTextPostgres\ORM\Query\AST\Functions\TsPlainQueryFunction::class);
@@ -31,7 +35,7 @@ A simple to use set of database types, and annotations to use postgresql's full 
 
 ## Symfony installation
 
- * Add to config
+* Add to config
 
  ```yaml
  doctrine:
@@ -52,13 +56,12 @@ A simple to use set of database types, and annotations to use postgresql's full 
 
 services:
          vertigolabs.doctrinefulltextpostgres.listener:
-                  class: VertigoLabs\DoctrineFullTextPostgres\Common\TsVectorSubscriber
-                  tags:
-                      - { name: doctrine.event_subscriber, connection: default }
+            class: VertigoLabs\DoctrineFullTextPostgres\Common\TsVectorListener
  ```
 
 ## Usage
- * Create your entity
+
+* Create your entity
 
  You do not have to create column annotations for your fields that will hold your full text search vectors (tsvector) the columns will be created automatically.
  A TsVector annotation only requires the ```fields``` parameter. There are optional ```weight``` and ```language``` parameters as well, however they are not used yet.
@@ -96,7 +99,7 @@ services:
   }
  ```
 
- * Insert some data
+* Insert some data
 
   You do not need to worry about setting any data to the fields marked with the TsVector annotation. The data for these fields will be automatically populated when you flush your changes to the database.
 
@@ -108,7 +111,7 @@ services:
   $this->em->flush();
   ```
 
- * Query your database!
+* Query your database!
 
   When you query your database, you'll query against the actual data. the query will be modified to search using the fields marked with the TsVector annotation automatically
 
@@ -135,5 +138,6 @@ services:
   ```
 
 ## TODO
- * Add language to SQL field definition
- * Add language and weighting to queries
+
+* Add language to SQL field definition
+* Add language and weighting to queries
