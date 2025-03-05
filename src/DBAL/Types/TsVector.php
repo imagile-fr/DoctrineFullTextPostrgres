@@ -8,6 +8,8 @@
 
 namespace VertigoLabs\DoctrineFullTextPostgres\DBAL\Types;
 
+use Doctrine\DBAL\Exception;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
@@ -19,14 +21,12 @@ use Doctrine\DBAL\Types\Type;
 class TsVector extends Type
 {
     /**
-     * Gets the SQL declaration snippet for a field of this type.
+     * Gets the SQL declaration snippet for a column of this type.
      *
-     * @param array                                     $fieldDeclaration the field declaration
-     * @param \Doctrine\DBAL\Platforms\AbstractPlatform $platform         the currently used database platform
-     *
-     * @return string
+     * @param array<string, mixed> $column   The column definition
+     * @param AbstractPlatform     $platform The currently used database platform.
      */
-    public function getSQLDeclaration(array $fieldDeclaration, AbstractPlatform $platform)
+    public function getSQLDeclaration(array $fieldDeclaration, AbstractPlatform $platform): string
     {
         return 'tsvector';
     }
@@ -40,31 +40,38 @@ class TsVector extends Type
      * Converts a value from its database representation to its PHP representation
      * of this type.
      *
-     * @param mixed                                     $value    the value to convert
-     * @param \Doctrine\DBAL\Platforms\AbstractPlatform $platform the currently used database platform
+     * @param mixed            $value    The value to convert.
+     * @param AbstractPlatform $platform The currently used database platform.
      *
-     * @return mixed the PHP representation of the value
+     * @return mixed The PHP representation of the value.
+     *
+     * @throws ConversionException
      */
-    public function convertToPHPValue($value, AbstractPlatform $platform)
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): mixed
     {
         return $value;
+    }
+
+    /**
+     * Modifies the SQL expression (identifier, parameter) to convert to a database value.
+     */
+    public function convertToDatabaseValueSQL(string $sqlExpr, AbstractPlatform $platform): string
+    {
+        return sprintf("to_tsvector('english', ?)", $sqlExpr);
     }
 
     /**
      * Converts a value from its PHP representation to its database representation
      * of this type.
      *
-     * @param mixed                                     $value    the value to convert
-     * @param \Doctrine\DBAL\Platforms\AbstractPlatform $platform the currently used database platform
+     * @param mixed            $value    The value to convert.
+     * @param AbstractPlatform $platform The currently used database platform.
      *
-     * @return mixed the database representation of the value
+     * @return mixed The database representation of the value.
+     *
+     * @throws ConversionException
      */
-    public function convertToDatabaseValueSQL($sqlExp, AbstractPlatform $platform)
-    {
-        return sprintf("to_tsvector('english', ?)", $sqlExp);
-    }
-
-    public function convertToDatabaseValue($value, AbstractPlatform $platform)
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): mixed
     {
         return $value['data'];
     }
@@ -74,12 +81,17 @@ class TsVector extends Type
      *
      * @return string
      */
-    public function getName()
+    public function getName(): string
     {
         return 'tsvector';
     }
 
-    public function getMappedDatabaseTypes(AbstractPlatform $platform)
+    /**
+     * Gets an array of database types that map to this Doctrine type.
+     *
+     * @return array<int, string>
+     */
+    public function getMappedDatabaseTypes(AbstractPlatform $platform): array
     {
         return ['tsvector'];
     }
