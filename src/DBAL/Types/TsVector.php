@@ -55,7 +55,7 @@ class TsVector extends Type
     /**
      * Modifies the SQL expression (identifier, parameter) to convert to a database value.
      */
-    public function convertToDatabaseValueSQL(string $sqlExpr, AbstractPlatform $platform): string
+    public function convertToDatabaseValueSQL($sqlExpr, AbstractPlatform $platform): string
     {
         return sprintf("to_tsvector('english', ?)", $sqlExpr);
     }
